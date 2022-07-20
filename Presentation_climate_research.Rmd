@@ -1,0 +1,438 @@
+---
+title: "Climate, Environment and Sustainability Research"
+subtitle: '...Starting 2017'
+author: ''
+date: "`r Sys.Date()`"
+fontsize: 20pt
+mainfont: Helvetica
+output:
+  powerpoint_presentation: default
+---
+
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Goals
+
+- Assess extent of climate-related research. 
+- Create a baseline of climate-related research funding. 
+- Disaggregate data based on important areas of focus.
+- Develop a series of high impact case studies.
+- Visualize findings and data.
+
+## Questions
+
+- Which are the primary funding bodies?
+- What is the application success rate?
+- How is research funding distributed among colleges/schools?
+- What is the distribution of active projects?
+- How is the research distributed around the world?
+- What are the major domains of research? 
+- How are research findings communicated?
+
+```{r echo=FALSE, results='hide',message=FALSE}
+gc(reset = T); rm(list = ls()) 
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, dplyr, readxl, purrr, ggVennDiagram, tidyverse, rnaturalearth, rnaturalearthdata)
+```
+
+```{r echo=FALSE, results='hide',message=FALSE}
+# Paths, directories
+datadir <- paste0(getwd(), "/data")
+outdir <- paste0(getwd(), "/outputs")
+```
+
+```{r echo=FALSE, results='hide',message=FALSE, warning=FALSE}
+# Reading projects from UKRI
+projects_ukri <- read_csv(paste0(outdir, "/ukri_projects.csv")) %>% 
+  mutate_at(vars(StartDate, EndDate), as.Date, format="%d/%m/%y") %>% 
+  filter(StartDate >= "01/01/2017")
+
+outcomes_ukri <- read_csv(paste0(outdir, "/ukri_outcomes.csv"))
+
+projects_ero <- read_csv(paste0(outdir, "/ero_projects.csv")) %>% 
+  mutate_at(vars(Application.Period.Start, Application.Period.End), as.Date, format="%y-%m-%d") %>% 
+  filter(Academic.Year >= "2017")
+```
+
+## Source of Funding (2021)
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+ero_projects_funding <- projects_ero %>% 
+  filter(Academic.Year == "2021") %>% 
+  group_by(Sponsor.Type) %>% 
+  summarise(Number_projects = n()) %>% 
+  mutate(Percentage = Number_projects/sum(Number_projects)*100) %>% 
+  mutate_if(is.numeric, round, 1)
+
+ggplot(ero_projects_funding, aes(x = reorder(Sponsor.Type, Percentage), y = Percentage, fill = Sponsor.Type)) +
+  geom_bar(position="stack", stat="identity", width = 0.5) +
+  #geom_text(aes(label=Percentage), hjust = -0.2)+
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: ERO")+
+  coord_flip()+
+  theme_bw()+
+  theme(plot.title = element_text(size = 12, family = "Helvetica", face = "bold"),
+        text = element_text(size = 12, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 14),
+        axis.text.x=element_text(size = 12),
+        axis.text.y=element_text(size = 12),
+        strip.text = element_text(size = 12),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "off")
+
+```
+
+## Application Success Rate
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+ero_projects_funding <- projects_ero %>% 
+  filter(!College %in% c("Corporate Services", "Information Services", "University Secretarys Group"),
+         !Status %in% c("Pending")) %>% 
+  group_by(Academic.Year, College, Status) %>% 
+  summarise(Number_projects = n()) %>% 
+  spread(Status, Number_projects) %>% 
+  mutate(Success_rate = Successful/(Successful+Unsuccessful)*100) %>% 
+  select(-c(Successful, Unsuccessful))
+
+
+ggplot(ero_projects_funding, aes(factor(Academic.Year), Success_rate, group = College)) +
+  geom_line(aes(color=College)) +
+  geom_point(aes(color=College))+
+  labs(x = "Year",
+       y = "Percent",
+       title = "",
+       caption = "Data source: ERO")+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, family = "Helvetica", face = "bold"),
+        text = element_text(size = 14, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 16),
+        axis.text.x=element_text(size = 14),
+        axis.text.y=element_text(size = 14),
+        strip.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.title=element_blank())+
+  scale_colour_manual(values = c(`College of Arts, Humanities and Social Science` = "blue", 
+                               `College of Medicine and Veterinary Medicine` = "skyblue",
+                               `College of Science and Engineering` = "firebrick3"))
+
+ggsave(paste0(outdir, "/ero_funding_sources.png"), width=1800, height=1000, units='px', dpi=150)
+```
+
+
+## Research Income (2021)
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+ero_projects_income <- projects_ero %>% 
+  filter(Academic.Year == "2021") %>% 
+  filter(!College %in% c("Corporate Services", "Information Services", "University Secretarys Group")) %>% 
+  group_by(College) %>% 
+  summarise(Amount_funding = sum(Application.Total, na.rm = TRUE)/1000000) %>% 
+  mutate_if(is.numeric, round, 1)
+
+ggplot(ero_projects_income, aes(x = reorder(College, Amount_funding), y = Amount_funding, fill = College)) +
+  geom_bar(position="stack", stat="identity", width = 0.5) +
+  #geom_text(aes(label=Amount_funding), hjust = -0.2)+
+  labs(x = "",
+       y = "Amount in Millions",
+       title = "",
+       caption = "Data source: ERO")+
+  coord_flip()+
+  scale_y_continuous(labels = scales::label_dollar(prefix = "£"))+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, family = "Helvetica", face = "bold"),
+        text = element_text(size = 14, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 16),
+        axis.text.x=element_text(size = 14),
+        axis.text.y=element_text(size = 14),
+        strip.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "off")+
+  scale_fill_manual(values = c(`College of Arts, Humanities and Social Science` = "blue", 
+                               `College of Medicine and Veterinary Medicine` = "skyblue",
+                               `College of Science and Engineering` = "firebrick3"))
+```
+
+
+## Source of Funding (Active projects)
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+projects_funding <- projects_ukri %>% 
+  group_by(FundingOrgName) %>% 
+  summarise(Number_projects = n()) %>%
+  mutate(Percentage = Number_projects/sum(Number_projects)*100) %>% 
+  ungroup() %>% 
+  mutate_if(is.numeric, round, 1)
+
+ggplot(projects_funding, aes(x = reorder(FundingOrgName, Percentage), y = Percentage, fill = FundingOrgName)) +
+  geom_bar(position="stack", stat="identity", width = 0.5) +
+  #geom_text(aes(label=Percentage), hjust = -0.2)+
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: UKRI")+
+  coord_flip()+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, family = "Helvetica", face = "bold"),
+        text = element_text(size = 14, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 16),
+        axis.text.x=element_text(size = 14),
+        axis.text.y=element_text(size = 14),
+        strip.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "off")
+```
+
+## Distribution of active projects within colleges
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+projects_distribution <- projects_ukri %>%
+  filter(Status == "Active") %>% 
+  group_by(College) %>% 
+  summarise(Number_projects = n()) %>% 
+  mutate(Percentage = Number_projects/sum(Number_projects)*100) %>% 
+  ungroup() %>% 
+  mutate_if(is.numeric, round, 1)
+
+ggplot(projects_distribution, aes(x = reorder(College, Percentage), y = Percentage, fill = College)) +
+  geom_bar(position="stack", stat="identity", width = 0.5) +
+  #geom_text(aes(label=Percentage), hjust = -0.2)+
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: UKRI")+
+  coord_flip()+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, family = "Helvetica", face = "bold"),
+        text = element_text(size = 14, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 16),
+        axis.text.x=element_text(size = 14),
+        axis.text.y=element_text(size = 14),
+        strip.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "off")+
+  scale_fill_manual(values = c(`College of Arts, Humanities & Social Sciences` = "blue", 
+                               `College of Medicine & Veterinary Medicine` = "skyblue",
+                               `College of Science and Engineering` = "firebrick3",
+                               Other = "grey"))
+```
+
+## Categories of Projects
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+projects_categories <- projects_ukri %>% 
+  group_by(ProjectCategory) %>% 
+  summarise(Number_projects = n()) %>% 
+  mutate(Percentage = Number_projects/sum(Number_projects)*100) %>% 
+  ungroup() %>% 
+  mutate_if(is.numeric, round, 1)
+
+ggplot(projects_categories, aes(x = reorder(ProjectCategory, Percentage), y = Percentage, fill = ProjectCategory)) +
+  geom_bar(position="stack", stat="identity", width = 0.5) +
+  #geom_text(aes(label=Percentage), hjust = -0.2)+
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: UKRI")+
+  coord_flip()+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, family = "Helvetica", face = "bold"),
+        text = element_text(size = 14, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 16),
+        axis.text.x=element_text(size = 14),
+        axis.text.y=element_text(size = 14),
+        strip.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "off")
+```
+
+## Geographic reach by College
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+outcomes_reach_colleges <- outcomes_ukri %>% 
+  group_by(College, `Geographical Reach`) %>% 
+  summarise(Number_outcomes = n()) %>% 
+  filter(!is.na(`Geographical Reach`)) %>% 
+  mutate(Percentage = Number_outcomes/sum(Number_outcomes)*100) %>% 
+  ungroup() %>% 
+  mutate_if(is.numeric, round, 1)
+
+ggplot(outcomes_reach_colleges, aes(x = reorder(College, Percentage), y = Percentage, fill = College)) +
+  geom_bar(position="stack", stat="identity", width = 0.5) +
+  #geom_text(aes(label=Percentage), hjust = -0.2)+
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: UKRI")+
+  coord_flip()+
+  facet_wrap(~`Geographical Reach`)+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, family = "Helvetica", face = "bold"),
+        text = element_text(size = 14, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 16),
+        axis.text.x=element_text(size = 14),
+        axis.text.y=element_text(size = 14),
+        strip.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "off")+
+    scale_fill_manual(values = c(`College of Arts, Humanities & Social Sciences` = "blue", 
+                               `College of Medicine & Veterinary Medicine` = "skyblue",
+                               `College of Science and Engineering` = "firebrick3",
+                               Other = "grey"))
+```
+
+## Geographic reach by School
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+outcomes_reach_schools <- outcomes_ukri %>% 
+  group_by(College, School, `Geographical Reach`) %>% 
+  summarise(Number_outcomes = n()) %>% 
+  filter(!is.na(`Geographical Reach`)) %>% 
+  group_by(College, School) %>% 
+  mutate(Percentage = Number_outcomes/sum(Number_outcomes)*100) %>% 
+  ungroup()
+
+ggplot(outcomes_reach_schools, aes(x = reorder(School, Percentage), y = Percentage, fill = School)) +
+  geom_bar(position="stack", stat="identity") +
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: UKRI")+
+  coord_flip()+
+  facet_wrap(~`Geographical Reach`)+
+  theme_bw()+
+  theme(plot.title = element_text(size = 10, family = "Helvetica", face = "bold"),
+        text = element_text(size = 10, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 10),
+        axis.text.x=element_text(size = 10),
+        axis.text.y=element_text(size = 10),
+        strip.text = element_text(size = 10),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "off")
+```
+
+```{r echo=FALSE, message=FALSE, eval = FALSE, fig.width = 10, fig.height = 5}
+outcomes_reach_countries <- outcomes_ukri %>% 
+  group_by(Country) %>% 
+  summarise(Number_outcomes = n()) %>% 
+  filter(!is.na(Country),
+         Country != c("European Union (EU)", "Global"))
+
+Country <- c("Austria", "Belgium", "Bulgaria", "Croatia", "Republic of Cyprus", "Czech Republic", "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta", "Netherlands", "Poland", "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden")
+Number_outcomes <- rep(4, 27)
+eu_countries <- data.frame(Country, Number_outcomes)
+
+# Cleaning EU country list
+outcomes_reach_countries <- rbind(outcomes_reach_countries, eu_countries) %>% 
+  mutate(Country = recode(Country,
+                          "Tanzania, United Republic of" = "Tanzania",
+                          "Republic of Cyprus" = "Cyprus")) %>% 
+  group_by(Country) %>% 
+  summarise(Number_outcomes = n())
+
+outcomes_reach_geo <- ne_countries(scale = "medium", returnclass = "sf") %>% 
+  rename(Country = admin) %>% 
+  left_join(outcomes_reach_countries, by = "Country") %>% 
+  mutate(Outcomes_global = 0) %>%
+  replace(is.na(.), 0) %>% 
+  rowwise() %>% 
+  mutate(Foot_print = sum(Number_outcomes, Outcomes_global, na.rm = TRUE)) %>% 
+  select(Country, Foot_print)
+
+ggplot(data = outcomes_reach_geo) +
+  geom_sf(aes(fill = Foot_print)) +
+  scale_fill_gradient(low = "yellow", high = "red")+
+  theme_bw()+
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "off")
+```
+
+## Domains of research
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+ero_keyword_search <- read_csv(paste0(outdir, "/ero_keyword_search.csv"))
+
+# Keyword categories
+sheet_names <- excel_sheets(path=paste0(datadir, "/Keywords.xlsx"))[2:4] # Grab sheet names
+
+# Loop through sheets
+category_sheets <- lapply(sheet_names, function(x) {
+  as.data.frame(read_excel(paste0(datadir, "/Keywords.xlsx"), sheet = x))})
+
+# rename elements in list by sheet name
+names(category_sheets) <- sheet_names
+
+# Projects categorization
+ero_projects_categorised <- list()
+
+for (i in 1:length(category_sheets)){
+  
+  category_keys <- category_sheets[i]
+  
+  category_keys <- do.call(rbind.data.frame, category_keys)
+  
+  categorised_keys <- ero_keyword_search %>% 
+    inner_join(category_keys, by = c("Keyword" = "Keywords")) %>%
+    mutate(Category = Research_category) %>%
+    select(Project_no) %>% 
+    as.character()
+  
+  ero_projects_categorised[[i]] <- unlist(strsplit(categorised_keys, ","))
+  
+}
+
+names(ero_projects_categorised) <- sheet_names
+
+ggVennDiagram(ero_projects_categorised, color = 1, lwd = 0.7, lty = 1, label_alpha = 0, label_percent_digit = 1, label = "percent", label_size = 5) + 
+  scale_fill_distiller(palette = "Reds", direction = 1) +
+  theme_bw()+
+  theme(plot.title = element_text(size = 16, family = "Helvetica", face = "bold"),
+        text = element_text(size = 16, family = "Helvetica"),
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        strip.text = element_text(size = 16),
+        panel.border=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        plot.background=element_blank(),
+        legend.position = "off")
+```
