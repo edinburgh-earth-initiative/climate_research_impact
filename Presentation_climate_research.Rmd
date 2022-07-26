@@ -29,8 +29,8 @@ knitr::opts_chunk$set(echo = FALSE)
 - How is research funding distributed among colleges/schools?
 - What is the distribution of active projects?
 - How is the research distributed around the world?
+- What are the various research outcomes from projects?
 - What are the major domains of research? 
-- How are research findings communicated?
 
 ```{r echo=FALSE, results='hide',message=FALSE}
 gc(reset = T); rm(list = ls()) 
@@ -377,6 +377,38 @@ ggplot(data = outcomes_reach_geo) +
         axis.ticks = element_blank(),
         panel.grid = element_blank(),
         panel.border = element_blank(),
+        legend.position = "off")
+```
+
+## Research outcomes
+
+```{r echo=FALSE, message=FALSE, fig.width = 12, fig.height = 5}
+outcomes_type_colleges <- outcomes_ukri %>% 
+  group_by(College, `Outcome Type`) %>% 
+  summarise(Number_outcomes = n()) %>% 
+  #filter(!is.na(`Geographical Reach`)) %>% 
+  mutate(Percentage = Number_outcomes/sum(Number_outcomes)*100) %>% 
+  ungroup()
+
+ggplot(outcomes_type_colleges, aes(x = reorder(`Outcome Type`, Percentage), y = Percentage, fill = `Outcome Type`)) +
+  geom_bar(position="stack", stat="identity") +
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: UKRI")+
+  coord_flip()+
+  facet_wrap(~College)+
+  theme_bw()+
+  theme(plot.title = element_text(size = 10, family = "Helvetica", face = "bold"),
+        text = element_text(size = 10, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 10),
+        axis.text.x=element_text(size = 10),
+        axis.text.y=element_text(size = 10),
+        strip.text = element_text(size = 10),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
         legend.position = "off")
 ```
 
