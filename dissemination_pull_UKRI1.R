@@ -15,7 +15,7 @@ dir.create(datadir, F, T)
 dir.create(outdir, F, T)
 
 # Keywords to look out for
-keywords = readLines(paste0(root, "/keywords_file.txt"))
+keywords = readLines(paste0(datadir, "/keywords_file.txt"))
 
 # Search criteria
 search_criteria <- gsub(" ", "+", keywords)
@@ -81,4 +81,4 @@ outcome_stats <- lapply(X = outcome_types, FUN = function(outcome){
 outcome_stats <- do.call(rbind, outcome_stats)
 
 # Write extract
-write.csv(results_df, file = paste0(outdir, "/dissemination_gtr.csv"), row.names = FALSE)
+write.csv(results_df, file = paste0(outdir, "/ukri_dissemination.csv"), row.names = FALSE)

@@ -17,7 +17,7 @@ ero_extract <- read_excel(paste0(datadir, "/ERO_all_projects.xlsx"))
 ero_schools <- read_excel(paste0(datadir, "/ERO_schools_corrected.xlsx"))
 
 # Keywords to look out for
-keywords = readLines(paste0(root, "/keywords_file.txt"))
+keywords = readLines(paste0(datadir, "/keywords_file.txt"))
 
 # Replace characters in key words
 search_criteria <- gsub("\" OR \"", ",", keywords)
@@ -88,6 +88,13 @@ ero_projects <- purrr::map_df(ero_stats, data.frame) %>%
                          "Economics" = "School of Economics",
                          "Business School" = "Business School",                                             
                          "Chemistry"  = "School of Chemistry"))
+
+ero_duplicates <- ero_projects %>% 
+  group_by(Project_ID) %>% 
+  mutate(isDuplicated = n() > 1) %>% 
+  ungroup() %>% 
+  filter(Scheme.Name == "research grant",
+         isDuplicated == "TRUE")
 
 # Write extract
 write.csv(ero_projects , file = paste0(outdir, "/ero_projects.csv"), row.names = FALSE)
