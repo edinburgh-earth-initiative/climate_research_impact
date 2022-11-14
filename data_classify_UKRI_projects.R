@@ -6,13 +6,11 @@ pacman::p_load("httr", "dplyr", "jsonlite", "purrr")
 
 # Paths, directories
 root <- getwd()
-datadir <- paste0(root, "/data")
-outdir <- paste0(root, "/outputs")
-dir.create(datadir, F, T)
-dir.create(outdir, F, T)
+datadir <- paste0(root, "/data"); dir.create(datadir, F, T)
+outdir <- paste0(root, "/outputs"); dir.create(outdir, F, T)
 
 # Keywords to look out for
-keywords = readLines(paste0(root, "/keywords_file.txt"))
+keywords = readLines(paste0(datadir, "/keywords_file.txt"))
 
 # Fix search criteria
 search_criteria <- gsub("OR", ",", keywords)

@@ -6,10 +6,8 @@ library(dplyr)
 
 # Paths, directories
 root <- getwd()
-datadir <- paste0(root, "/data")
-outdir <- paste0(root, "/outputs")
-dir.create(datadir, F, T)
-dir.create(outdir, F, T)
+datadir <- paste0(root, "/data"); dir.create(datadir, F, T)
+outdir <- paste0(root, "/outputs"); dir.create(outdir, F, T)
 
 # Reading UKRI data
 outcomes_files <- list.files(paste0(datadir, "/outcomes"), pattern ="*.csv", full.names = TRUE)

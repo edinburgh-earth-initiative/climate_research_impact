@@ -2,19 +2,20 @@
 
 gc(reset = T); rm(list = ls()) 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(dplyr, readxl, purrr)
+pacman::p_load(dplyr, readxl, purrr, data.table, xlsx)
 
 # Paths, directories
 root <- getwd()
+
 datadir <- paste0(root, "/data")
 outdir <- paste0(root, "/outputs")
 dir.create(datadir, F, T)
 dir.create(outdir, F, T)
 
 # Reading projects from UKRI
-ero_extract <- read_excel(paste0(datadir, "/ERO_all_projects.xlsx"))
+ero_extract <- readxl::read_excel(paste0(datadir, "/ERO_all_projects_09112022.xlsx"))
 
-ero_schools <- read_excel(paste0(datadir, "/ERO_schools_corrected.xlsx"))
+ero_schools <- readxl::read_excel(paste0(datadir, "/ERO_schools_corrected.xlsx"))
 
 # Keywords to look out for
 keywords = readLines(paste0(datadir, "/keywords_file.txt"))
@@ -57,7 +58,8 @@ ero_stats <- lapply(X = 1:length(keywords), FUN = function(j){
 })
 
 # Merge all dataframes
-ero_projects <- purrr::map_df(ero_stats, data.frame) %>% 
+ero_projects <- purrr::map_df(ero_stats, data.frame) %>%
+  rename(College = College..Short.) %>% 
   mutate_at(vars(Application.Period.Start, Application.Period.End), as.Date, format="%y-%m-%d") %>% 
   mutate(School = recode(School,
                          "Law" =  "School of Law",                                                      
@@ -89,12 +91,12 @@ ero_projects <- purrr::map_df(ero_stats, data.frame) %>%
                          "Business School" = "Business School",                                             
                          "Chemistry"  = "School of Chemistry"))
 
-ero_duplicates <- ero_projects %>% 
-  group_by(Project_ID) %>% 
-  mutate(isDuplicated = n() > 1) %>% 
-  ungroup() %>% 
-  filter(Scheme.Name == "research grant",
-         isDuplicated == "TRUE")
+# ero_duplicates <- ero_projects %>% 
+#   group_by(Project_ID) %>% 
+#   mutate(isDuplicated = n() > 1) %>% 
+#   ungroup() %>% 
+#   filter(Scheme.Name == "research grant",
+#          isDuplicated == "TRUE")
 
 # Write extract
-write.csv(ero_projects , file = paste0(outdir, "/ero_projects.csv"), row.names = FALSE)
+fwrite(ero_projects , file = paste0(outdir, "/ero_projects.csv"), row.names = FALSE)

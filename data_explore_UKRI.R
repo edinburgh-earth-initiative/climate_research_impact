@@ -2,27 +2,24 @@
 # Variables: impacts, outcomes 
 # Aggregation and visualization of data
 
-gc(reset = T); rm(list = ls()) 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(tidyverse, dplyr, readxl)
+pacman::p_load(tidyverse, dplyr, readxl, data.table)
 
 # Paths, directories
 root <- getwd()
-datadir <- paste0(root, "/data")
-outdir <- paste0(root, "/outputs")
-dir.create(datadir, F, T)
-dir.create(outdir, F, T)
+datadir <- paste0(root, "/data"); dir.create(datadir, F, T)
+outdir <- paste0(root, "/outputs"); dir.create(outdir, F, T)
 
 # Reading projects from UKRI
-projects_gtr <- read_csv(paste0(datadir, "/projectsearch-1657097606835.csv"))
+projects_gtr <- fread(paste0(datadir, "/projectsearch-1668010692851.csv"))
 
-projects_gtr <- projects_gtr %>%
+ukri_projects <- projects_gtr %>%
   filter(LeadROId == "2DB7ED73-8E89-457A-A395-FAC12F929C1A",
          ProjectCategory != "Studentship")
 
 
 # Clean up school, unit names
-ukri_projects <- projects_gtr %>% 
+ukri_projects <- ukri_projects %>% 
   mutate(School = ifelse(Department %in% c("Sch of Geosciences", "School of Geosciences"), "School of Geosciences", 
                          ifelse(Department %in% c("Royal (Dick) School of Veterinary Scienc", "The Roslin Institute", "Roslin Institute", "Veterinary Clinical Studies", "Genetics and Genomics"), "Royal (Dick) School of Veterinary Science", 
                                 ifelse(Department %in% c("Business School"), "Business School", 
@@ -71,9 +68,24 @@ ukri_projects <- ukri_projects %>%
                                                                                                                                                  ifelse(Department %in% c("Sch of Physics and Astronomy"), "College of Science and Engineering", 
                                                                                                                                                         ifelse(Department %in% c("Sch of Social and Political Science", "Science  Technology & Innovation Studies"), "College of Arts, Humanities & Social Sciences", 
                                                                                                                                                                ifelse(Department %in% c("Sch of Chemistry"), "College of Science and Engineering", "Other"))))))))))))))))))))))
+gender_projects_ukri <- list()
 
+for (i in 1:nrow(ukri_projects)) {
+  
+  row <- ukri_projects[i,]
+  pi_FirstName <- row$PIFirstName
+  pi_FirstName <- sub(" .*", "", pi_FirstName)
+  gender_pi <- gender::gender(pi_FirstName)["gender"]
+  
+  if(dim(gender_pi)[1]==0){gender_pi <- data.frame(gender=NA)}
+  
+  row$PIGender <- gender_pi$gender
+  gender_projects_ukri[[i]] <- row
+  
+}
 
-
+ukri_projects <- do.call(rbind, gender_projects_ukri)
+ukri_projects$PIGender <- str_to_title(ukri_projects$PIGender)
 
 # Write extract
-write.csv(ukri_projects, file = paste0(outdir, "/ukri_projects.csv"), row.names = FALSE)
+fwrite(ukri_projects, file = paste0(outdir, "/ukri_projects.csv"), row.names = FALSE)
