@@ -35,10 +35,10 @@ knitr::opts_chunk$set(echo = FALSE)
 ```{r echo=FALSE, results='hide',message=FALSE}
 gc(reset = T); rm(list = ls()) 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(tidyverse, dplyr, readxl, purrr, ggVennDiagram, tidyverse, rnaturalearth, rnaturalearthdata)
+pacman::p_load(tidyverse, dplyr, readxl, purrr, ggVennDiagram, tidyverse, rnaturalearth, rnaturalearthdata, genderdata)
 ```
 
-```{r echo=FALSE, results='hide',message=FALSE}
+```{r echo=FALSE, results='hide',message=FALSE, warning=FALSE}
 # Paths, directories
 datadir <- paste0(getwd(), "/data")
 outdir <- paste0(getwd(), "/outputs")
@@ -94,16 +94,36 @@ ggplot(ero_projects_funding, aes(x = reorder(Sponsor.Type, Percentage), y = Perc
 
 ```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
 ero_projects_funding <- projects_ero %>% 
-  filter(!College %in% c("Corporate Services", "Information Services", "University Secretarys Group"),
-         !Status %in% c("Pending")) %>% 
+  filter(!College %in% c("Professional Services"),
+         !Status %in% c("Pending"),
+         !Academic.Year == "2022") %>% 
   group_by(Academic.Year, College, Status) %>% 
   summarise(Number_projects = n()) %>% 
   spread(Status, Number_projects) %>% 
   mutate(Success_rate = Successful/(Successful+Unsuccessful)*100) %>% 
   select(-c(Successful, Unsuccessful))
 
+# schools_average <- projects_ero %>% 
+#   filter(!College %in% c("Professional Services"),
+#          !Status %in% c("Pending"),
+#          !Academic.Year == "2022") %>% 
+#   group_by(College, Status) %>% 
+#   summarise(Number_projects = n()) %>% 
+#   spread(Status, Number_projects) %>% 
+#   mutate(Success_rate = Successful/(Successful+Unsuccessful)*100) %>% 
+#   select(-c(Successful, Unsuccessful))
 
-ggplot(ero_projects_funding, aes(factor(Academic.Year), Success_rate, group = College)) +
+# university_average <- projects_ero %>%
+#   filter(!College %in% c("Professional Services"),
+#          !Status %in% c("Pending"),
+#          !Academic.Year == "2022") %>%
+#   group_by(Status) %>%
+#   summarise(Number_projects = n()) %>%
+#   spread(Status, Number_projects) %>%
+#   mutate(Success_rate = Successful/(Successful+Unsuccessful)*100) %>%
+#   select(-c(Successful, Unsuccessful))
+
+ggplot(ero_projects_funding, aes(factor(Academic.Year), Success_rate, group = College), na.rm = TRUE) +
   geom_line(aes(color=College)) +
   geom_point(aes(color=College))+
   labs(x = "Year",
@@ -123,9 +143,9 @@ ggplot(ero_projects_funding, aes(factor(Academic.Year), Success_rate, group = Co
         panel.background = element_blank(),
         legend.text = element_text(size = 14),
         legend.title=element_blank())+
-  scale_colour_manual(values = c(`College of Arts, Humanities and Social Science` = "blue", 
-                               `College of Medicine and Veterinary Medicine` = "skyblue",
-                               `College of Science and Engineering` = "firebrick3"))
+  scale_colour_manual(values = c(CAHSS = "blue", 
+                                 CMVM = "skyblue",
+                                 CSE = "firebrick3"))
 
 ggsave(paste0(outdir, "/ero_funding_sources.png"), width=1800, height=1000, units='px', dpi=150)
 ```
@@ -136,7 +156,7 @@ ggsave(paste0(outdir, "/ero_funding_sources.png"), width=1800, height=1000, unit
 ```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
 ero_projects_income <- projects_ero %>% 
   filter(Academic.Year == "2021") %>% 
-  filter(!College %in% c("Corporate Services", "Information Services", "University Secretarys Group")) %>% 
+  filter(!College %in% c("Professional Services")) %>% 
   group_by(College) %>% 
   summarise(Amount_funding = sum(Application.Total, na.rm = TRUE)/1000000) %>% 
   mutate_if(is.numeric, round, 1)
@@ -162,11 +182,154 @@ ggplot(ero_projects_income, aes(x = reorder(College, Amount_funding), y = Amount
         #panel.border = element_blank(),
         panel.background = element_blank(),
         legend.position = "off")+
-  scale_fill_manual(values = c(`College of Arts, Humanities and Social Science` = "blue", 
-                               `College of Medicine and Veterinary Medicine` = "skyblue",
-                               `College of Science and Engineering` = "firebrick3"))
+  scale_colour_manual(values = c(CAHSS = "blue", 
+                                 CMVM = "skyblue",
+                                 CSE = "firebrick3"))
 ```
 
+## Size of Grants
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+ero_projects_grant_size <- projects_ero %>% 
+  filter(Academic.Year == "2021",
+         Status == "Successful") %>% 
+  filter(!College %in% c("Professional Services")) %>% 
+  mutate(Funding_level = ifelse(Application.Total <= 100000, "<100000", 
+                                ifelse(Application.Total > 100000 & Application.Total <= 250000, "100000-250000", 
+                                       ifelse(Application.Total > 250000 & Application.Total <= 500000, "250000-500000", 
+                                              ifelse(Application.Total > 500000 & Application.Total <= 750000, "500000-750000",
+                                                     ifelse(Application.Total > 750000 & Application.Total <= 1000000, "750000-1000000",
+                                                            ifelse(Application.Total > 1000000 & Application.Total <= 2500000, "1000000-2500000",
+                                                                   ifelse(Application.Total > 2500000, ">2500000", NA)))))))) %>% 
+  group_by(Funding_level) %>% 
+  summarise(Number_projects = n()) %>% 
+  mutate(Percentage = Number_projects/sum(Number_projects)*100) %>% 
+  mutate_if(is.numeric, round, 1)
+
+# ero_projects_grant_size <- projects_ero %>% 
+#   filter(Academic.Year == "2021",
+#          Status == "Successful") %>% 
+#   filter(!College %in% c("Professional Services")) %>% 
+#   mutate(Funding_level = ifelse(Sum.of.Application.Total <= 100000, "<100000", 
+#                                 ifelse(Sum.of.Application.Total > 100000 & Sum.of.Application.Total <= 250000, "100000-250000", 
+#                                        ifelse(Sum.of.Application.Total > 250000 & Sum.of.Application.Total <= 500000, "250000-500000", 
+#                                               ifelse(Sum.of.Application.Total > 500000 & Sum.of.Application.Total <= 750000, "500000-750000",
+#                                                      ifelse(Sum.of.Application.Total > 750000 & Sum.of.Application.Total <= 1000000, "750000-1000000",
+#                                                             ifelse(Sum.of.Application.Total > 1000000 & Sum.of.Application.Total <= 2500000, "1000000-2500000",
+#                                                                    ifelse(Sum.of.Application.Total > 2500000 & Sum.of.Application.Total <= 5000000, "2500000-5000000",
+#                                                                           ifelse(Sum.of.Application.Total > 5000000 & Sum.of.Application.Total <= 7500000, "5000000-7500000",
+#                                                                                  ifelse(Sum.of.Application.Total > 7500000 & Sum.of.Application.Total <= 10000000, "7500000-10000000", 
+#                                                                                         ifelse(Sum.of.Application.Total > 10000000 & Sum.of.Application.Total <= 12500000, "10000000-12500000",
+#                                                                                                ifelse(Sum.of.Application.Total > 12500000 & Sum.of.Application.Total <= 15000000, "12500000-15000000",
+#                                                                                                       ifelse(Sum.of.Application.Total > 15000000, ">15000000", NA))))))))))))) %>% 
+#   group_by(Funding_level) %>% 
+#   summarise(Number_projects = n()) %>% 
+#   mutate(Percentage = Number_projects/sum(Number_projects)*100) %>% 
+#   mutate_if(is.numeric, round, 1)
+
+ero_projects_grant_size$Funding_level <- factor(ero_projects_grant_size$Funding_level, levels = c("<100000", 
+                                                                                                  "100000-250000", 
+                                                                                                  "250000-500000",
+                                                                                                  "500000-750000",
+                                                                                                  "750000-1000000",
+                                                                                                  "1000000-2500000",
+                                                                                                  ">2500000"))
+ggplot(ero_projects_grant_size, aes(x = Funding_level, y = Percentage, fill = Funding_level)) +
+  geom_bar(position="stack", stat="identity", width = 0.5) +
+  #geom_text(aes(label=Amount_funding), hjust = -0.2)+
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: ERO")+
+  coord_flip()+
+  #scale_y_continuous(labels = scales::label_dollar(prefix = "£"))+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, family = "Helvetica", face = "bold"),
+        text = element_text(size = 14, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 16),
+        axis.text.x=element_text(size = 14),
+        axis.text.y=element_text(size = 14),
+        strip.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "off")+
+  scale_colour_manual(values = c(CAHSS = "blue", 
+                                 CMVM = "skyblue",
+                                 CSE = "firebrick3"))
+```
+
+## Leadership by Gender
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+projects_ukri_gender <- projects_ukri %>% 
+  filter(!College == "Other",
+         !PIGender == "NA") %>% 
+  group_by(College, PIGender) %>% 
+  summarise(Number_projects = n()) %>% 
+  mutate(Percentage = Number_projects/sum(Number_projects)*100) %>% 
+  ungroup() %>% 
+  mutate_if(is.numeric, round, 0)
+
+ggplot(projects_ukri_gender, aes(x= College, y = Percentage, fill = PIGender)) +
+  geom_bar(position="dodge", stat="identity", width = 0.5) +
+  #geom_text(aes(label=Percentage), hjust = -0.2)+
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: UKRI")+
+  coord_flip()+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, family = "Helvetica", face = "bold"),
+        text = element_text(size = 14, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 16),
+        axis.text.x=element_text(size = 14),
+        axis.text.y=element_text(size = 14),
+        strip.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank())+
+  guides(fill=guide_legend(title="Leadership"))
+
+```
+
+## Leadership (UoE, Partners)
+
+```{r echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5}
+ero_projects_leadership <- projects_ero %>% 
+  filter(!College %in% c("Professional Services"),
+         !Status %in% c("Pending", "Unsuccessful"),
+         !Academic.Year == "2022") %>% 
+  mutate(UoE_Led = ifelse(Lead.Organisation == "University of Edinburgh", "UoE", "Partner")) %>% 
+  group_by(Academic.Year, UoE_Led) %>% 
+  summarise(Number_projects = n()) %>% 
+  mutate(Percentage = Number_projects/sum(Number_projects)*100) %>% 
+  mutate_if(is.numeric, round, 0)
+
+ggplot(ero_projects_leadership, aes(x = factor(Academic.Year), y = Percentage, fill = UoE_Led)) +
+  geom_bar(position="dodge", stat="identity", width = 0.5) +
+  #geom_text(aes(label=Amount_funding), hjust = -0.2)+
+  labs(x = "",
+       y = "Percent",
+       title = "",
+       caption = "Data source: ERO")+
+  #coord_flip()+
+  #scale_y_continuous(labels = scales::label_dollar(prefix = "£"))+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, family = "Helvetica", face = "bold"),
+        text = element_text(size = 14, family = "Helvetica"),
+        axis.title = element_text(face="bold", size = 16),
+        axis.text.x=element_text(size = 14),
+        axis.text.y=element_text(size = 14),
+        strip.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank())+
+  guides(fill=guide_legend(title="Leadership"))
+```
 
 ## Source of Funding (Active projects)
 
