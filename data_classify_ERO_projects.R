@@ -6,17 +6,15 @@ pacman::p_load(dplyr, readxl, purrr, ggVennDiagram, tidyverse)
 
 # Paths, directories
 root <- getwd()
-datadir <- paste0(root, "/data")
-outdir <- paste0(root, "/outputs")
-dir.create(datadir, F, T)
-dir.create(outdir, F, T)
+datadir <- paste0(root, "/data"); dir.create(datadir, F, T)
+outdir <- paste0(root, "/outputs"); dir.create(outdir, F, T)
 
 # Reading projects from UKRI
-ero_projects <- read_csv(paste0(root, "/outputs", "/ero_projects.csv")) %>% 
+ero_projects <- read_csv(paste0(outdir, "/ero_projects.csv")) %>% 
   filter(Academic.Year >= "2017")
 
 # Keywords to look out for
-keywords = readLines(paste0(root, "/keywords_file.txt"))
+keywords = readLines(paste0(datadir, "/keywords_file.txt"))
 
 # Replace characters in key words
 search_criteria <- gsub("\" OR \"", ",", keywords)
